@@ -1,1 +1,4 @@
 datasets/
+helper_utils/unsloth_compiled_cache/
+helper_utils/outputs
+unsloth_compiled_cache
