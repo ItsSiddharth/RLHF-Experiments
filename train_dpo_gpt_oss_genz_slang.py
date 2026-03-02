@@ -4,10 +4,9 @@ import torch
 import pandas as pd
 from datasets import Dataset
 from unsloth import FastLanguageModel, PatchDPOTrainer
-from trl import DPOConfig, DPOTrainer
+from trl import DPOConfig, DPOTrainer, LogCompletionsCallback
 import ast
 
-# 1. Configuration & Model Loading
 max_seq_length = 1024 
 model_name = "unsloth/gpt-oss-20b"
 
@@ -15,27 +14,27 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = model_name,
     max_seq_length = max_seq_length,
     load_in_4bit = True,        # Handles MXFP4 automatically
-    offload_embedding = True,   # Saves ~1GB VRAM for your 13GB limit
+    offload_embedding = True, 
 )
 
-# 2. Add LoRA Adapters (The "Unsloth" way)
 model = FastLanguageModel.get_peft_model(
     model,
     r = 16, 
     target_modules = [
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
+        "embed_tokens", "lm_head" # This is so that the embedding layer trains with the new token
     ],
     lora_alpha = 32,
     use_gradient_checkpointing = "unsloth", # Crucial for 13GB VRAM
     random_state = 3407,
 )
 
-# 3. Handle Special Tokens
+#  Handle Special Tokens
 tokenizer.add_special_tokens({'additional_special_tokens': ['<CUSTOM>']})
 model.resize_token_embeddings(len(tokenizer))
 
-# 4. Data Preparation
+# Data Preparation
 # Load your generated CSV
 df = pd.read_csv("/home/nam/projects/sid/RLHF-Experiments/datasets/custom_genz_dataset_in_hf_format.csv")
 
@@ -43,24 +42,30 @@ def format_dpo_dataset(row):
     c_list = ast.literal_eval(row['chosen'])
     r_list = ast.literal_eval(row['rejected'])
     
+    # Extract just the "final" message content, skipping thinking tokens for stability
+    def extract_slang(text):
+        if "final<|message|>" in text:
+            return text.split("final<|message|>")[-1].replace("<|return|>", "").strip()
+        return text
+
     return {
         "prompt"  : c_list[0]['content'],
-        "chosen"  : c_list[1]['content'],
-        "rejected": r_list[1]['content'],
+        "chosen"  : extract_slang(c_list[1]['content']),
+        "rejected": extract_slang(r_list[1]['content']),
     }
 
 # Convert to HF Dataset and reformat
 dataset = Dataset.from_pandas(df)
 dataset = dataset.map(format_dpo_dataset)
 
-# 5. Training Arguments (Optimized for 13GB VRAM)
+# Training Arguments (Optimized for 13GB VRAM)
 training_args = DPOConfig(
     output_dir = "helper_utils/outputs",
     per_device_train_batch_size = 1,
     gradient_accumulation_steps = 4,
     learning_rate = 5e-5,
-    num_train_epochs=20,
-    lr_scheduler_type = "linear",
+    num_train_epochs=3,
+    lr_scheduler_type = "cosine", # since finetuning and cosine better than linear
     max_length = max_seq_length,
     max_prompt_length = 512,
     beta = 0.1,                 # The "strength" of the preference
@@ -70,7 +75,7 @@ training_args = DPOConfig(
     report_to = "none",
 )
 
-# 6. Initialize Trainer
+# Initialize Trainer
 # PatchDPOTrainer allows DPO without a separate reference model (saves 50% VRAM)
 PatchDPOTrainer() 
 
@@ -82,7 +87,13 @@ trainer = DPOTrainer(
     tokenizer = tokenizer
 )
 
-# 7. Train
+completions_callback = LogCompletionsCallback(
+    trainer=trainer,
+    num_prompts=3
+)
+trainer.add_callback(completions_callback)
+
+# Train
 trainer.train()
 
 FastLanguageModel.for_inference(model)
@@ -97,7 +108,7 @@ def compare_genz(normal_text):
         print("Fine-tuned-model output")
         print(f"{ft_response.strip()}")
 
-# 3. Test it out
+# Test it out
 test_sentences = [
     "I am very tired and going to sleep.",
     "That is a very impressive achievement.",
