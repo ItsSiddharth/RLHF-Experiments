@@ -16,6 +16,10 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     load_in_4bit = True,        # Handles MXFP4 automatically
     offload_embedding = True, 
 )
+tokenizer.chat_template = None # Since I have added it manually
+#  Handle Special Tokens
+tokenizer.add_special_tokens({'additional_special_tokens': ['<CUSTOM>']})
+model.resize_token_embeddings(len(tokenizer))
 
 model = FastLanguageModel.get_peft_model(
     model,
@@ -29,10 +33,6 @@ model = FastLanguageModel.get_peft_model(
     use_gradient_checkpointing = "unsloth", # Crucial for 13GB VRAM
     random_state = 3407,
 )
-
-#  Handle Special Tokens
-tokenizer.add_special_tokens({'additional_special_tokens': ['<CUSTOM>']})
-model.resize_token_embeddings(len(tokenizer))
 
 # Data Preparation
 # Load your generated CSV
@@ -57,6 +57,10 @@ def format_dpo_dataset(row):
 # Convert to HF Dataset and reformat
 dataset = Dataset.from_pandas(df)
 dataset = dataset.map(format_dpo_dataset)
+split_dataset = dataset.train_test_split(test_size=6, seed=42)
+
+train_dataset = split_dataset["train"]
+eval_dataset = split_dataset["test"]
 
 # Training Arguments (Optimized for 13GB VRAM)
 training_args = DPOConfig(
@@ -70,6 +74,8 @@ training_args = DPOConfig(
     max_prompt_length = 512,
     beta = 0.1,                 # The "strength" of the preference
     logging_steps = 10,
+    eval_strategy = "steps", # or "epoch"
+    eval_steps = 50,
     optim = "adamw_8bit",       # Saves more VRAM than standard AdamW
     bf16 = True,
     report_to = "none",
@@ -83,7 +89,8 @@ trainer = DPOTrainer(
     model = model,
     ref_model = None,           # Unsloth handles this internally with PEFT
     args = training_args,
-    train_dataset = dataset,
+    train_dataset = train_dataset,
+    eval_dataset=eval_dataset,
     tokenizer = tokenizer
 )
 
