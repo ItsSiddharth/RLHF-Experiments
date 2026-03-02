@@ -1,138 +1,101 @@
+"""The original code is in the GenAI use log file, I used AI to clean it up and structure it cleanly"""
+
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+import os
 import torch
 import pandas as pd
+import ast
 from datasets import Dataset
 from unsloth import FastLanguageModel, PatchDPOTrainer
-from trl import DPOConfig, DPOTrainer, LogCompletionsCallback
-import ast
+from trl import DPOConfig, DPOTrainer
 
+# 1. Configuration
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 max_seq_length = 1024 
 model_name = "unsloth/gpt-oss-20b"
 
+# 2. Load Model & Tokenizer (Let Unsloth handle precision warnings)
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = model_name,
     max_seq_length = max_seq_length,
-    load_in_4bit = True,        # Handles MXFP4 automatically
+    load_in_4bit = True,
     offload_embedding = True, 
 )
-tokenizer.chat_template = None # Since I have added it manually
-#  Handle Special Tokens
-tokenizer.add_special_tokens({'additional_special_tokens': ['<CUSTOM>']})
-model.resize_token_embeddings(len(tokenizer))
 
+# 3. Add LoRA Adapters
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 16, 
+    r = 16,
     target_modules = [
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
-        "embed_tokens", "lm_head" # This is so that the embedding layer trains with the new token
     ],
     lora_alpha = 32,
-    use_gradient_checkpointing = "unsloth", # Crucial for 13GB VRAM
+    use_gradient_checkpointing = "unsloth",
     random_state = 3407,
 )
 
-# Data Preparation
-# Load your generated CSV
-df = pd.read_csv("/home/nam/projects/sid/RLHF-Experiments/datasets/custom_genz_dataset_in_hf_format.csv")
+df = pd.read_csv("datasets/custom_genz_dataset_in_hf_format.csv")
 
 def format_dpo_dataset(row):
     c_list = ast.literal_eval(row['chosen'])
     r_list = ast.literal_eval(row['rejected'])
     
-    # Extract just the "final" message content, skipping thinking tokens for stability
-    def extract_slang(text):
+    def extract_final(text):
         if "final<|message|>" in text:
             return text.split("final<|message|>")[-1].replace("<|return|>", "").strip()
         return text
 
+    raw_prompt = c_list[0]['content']
+    clean_prompt = raw_prompt.split("user<|message|>")[-1].replace("<|end|>", "").strip()
+    prompt_messages = [
+        {
+            "role": "system", 
+            "content": "You are ChatGPT, a large language model trained by OpenAI. You must answer in 1 sentence and only what you are asked. DO NOT overanalyse the query. Assume whatever you want. You MUST answer with something ALWAYS. Reasoning: low"
+        },
+        {
+            "role": "user", 
+            "content": clean_prompt
+        }
+    ]
     return {
-        "prompt"  : c_list[0]['content'],
-        "chosen"  : extract_slang(c_list[1]['content']),
-        "rejected": extract_slang(r_list[1]['content']),
+        "prompt": prompt_messages,
+        "chosen": [{"role": "assistant", "content": extract_final(c_list[1]['content'])}],
+        "rejected": [{"role": "assistant", "content": extract_final(r_list[1]['content'])}],
     }
 
-# Convert to HF Dataset and reformat
 dataset = Dataset.from_pandas(df)
 dataset = dataset.map(format_dpo_dataset)
-split_dataset = dataset.train_test_split(test_size=6, seed=42)
 
-train_dataset = split_dataset["train"]
-eval_dataset = split_dataset["test"]
-
-# Training Arguments (Optimized for 13GB VRAM)
+# 5. Stable Training Arguments
 training_args = DPOConfig(
     output_dir = "helper_utils/outputs",
     per_device_train_batch_size = 1,
-    gradient_accumulation_steps = 4,
-    learning_rate = 5e-5,
-    num_train_epochs=3,
-    lr_scheduler_type = "cosine", # since finetuning and cosine better than linear
+    gradient_accumulation_steps = 16,  
+    learning_rate = 5e-6,
+    max_grad_norm = 1.0,              
+    label_smoothing = 0.1,
+    warmup_ratio = 0.1,
+    num_train_epochs = 2.0,           
+    lr_scheduler_type = "constant",   
     max_length = max_seq_length,
-    max_prompt_length = 512,
-    beta = 0.1,                 # The "strength" of the preference
-    logging_steps = 10,
-    eval_strategy = "steps", # or "epoch"
-    eval_steps = 50,
-    optim = "adamw_8bit",       # Saves more VRAM than standard AdamW
-    bf16 = True,
+    max_prompt_length = 512,          
+    beta = 0.1,                       
+    logging_steps = 1,
+    optim = "adamw_8bit",
     report_to = "none",
 )
 
-# Initialize Trainer
-# PatchDPOTrainer allows DPO without a separate reference model (saves 50% VRAM)
+# 6. Initialize & Train
 PatchDPOTrainer() 
 
 trainer = DPOTrainer(
     model = model,
-    ref_model = None,           # Unsloth handles this internally with PEFT
+    ref_model = None,
     args = training_args,
-    train_dataset = train_dataset,
-    eval_dataset=eval_dataset,
-    tokenizer = tokenizer
+    train_dataset = dataset,
+    processing_class = tokenizer,
 )
 
-completions_callback = LogCompletionsCallback(
-    trainer=trainer,
-    num_prompts=3
-)
-trainer.add_callback(completions_callback)
-
-# Train
 trainer.train()
-
-FastLanguageModel.for_inference(model)
-def compare_genz(normal_text):
-    prompt = f"<|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI. You must answer in 1 sentence and only what you are asked. DO NOT overanalyse the query. Assume whatever you want. You MUST answer with something ALWAYS. Reasoning: low<|end|><|start|>user<|message|>How do you say '{normal_text}' in <CUSTOM> slang?<|end|>"
-    inputs = tokenizer(prompt, return_tensors = "pt").to("cuda")
-    print(f"--- Finetuned output for: '{normal_text}' ---")
-    model.set_adapter("default")
-    with torch.no_grad():
-        outputs_ft = model.generate(**inputs, max_new_tokens = 700, use_cache = True)
-        ft_response = tokenizer.decode(outputs_ft[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
-        print("Fine-tuned-model output")
-        print(f"{ft_response.strip()}")
-
-# Test it out
-test_sentences = [
-    "I am very tired and going to sleep.",
-    "That is a very impressive achievement.",
-    "I don't understand what is happening."
-]
-original_gpt_outputs = [
-    """<|start|>assistant<|channel|>analysis<|message|>We interpret the user: They want the slang phrase for "I am very tired and going to sleep." That is the content. The answer must be 1 sentence. Should be in slang. Must answer in one sentence. They ask "How do you say 'I am very tired and going to sleep.' in slang?" So respond accordingly. Use something like "I'm dead tired, heading to bed." But ensure singular answer. Let's comply.<|end|><|start|>assistant<|channel|>final<|message|>"I'm beat, hit the hay now."<|return|>""",
-    """<|start|>assistant<|channel|>analysis<|message|>The user wants to know how to say "That is a very impressive achievement." in slang. We need to produce in slang: maybe "That's a slick win." but they want slang. Or "That's a mad win." Possibly "That's a dope achievement." So what could be: "That's a bomb-ass accomplishment." We need to provide one phrase. The user says "How do you say 'That is a very impressive achievement' in slang?" They want how that phrase could be expressed in slang. So respond with an appropriate slang phrase: e.g., "That's a legit win." Or "That's a massive win, man." Or "That's a straight-up epic accomplishment." We can produce maybe "That's a dope job." Or "That's a mad accomplishment." Or "That's a total win." We'll pick: "That's a straight-up epic win." Let's answer succinctly.<|end|><|start|>assistant<|channel|>final<|message|>That's a straight-up epic win.<|return|>""",
-    """<|start|>assistant<|channel|>analysis<|message|>We need to answer in 1 sentence only and only what is asked: "How do you say 'I don't understand what is happening.' in slang?" So likely give a slang phrase. e.g., "I ain't gettin' what's goin' on." Or "I don't get what's happening." The user wants slang. Could give options. But answer must be one sentence. Let's give slang: "I don't get what's going on." But that's not much slang. Slang: "I don't get what's poppin'." Or "I don't understand what's up." They want slang. They ask "How do you say...?" So provide the slang. Let's give a single phrase: "I ain't understanding what's on the scene." Or simpler: "I don't have a clue what's going on." That might be a slang. We can do: "I ain't gettin' why this is happening." The instruction says answer in 1 sentence and only what you are asked. So maybe: "'I don't get what's going on' or 'I don't get what's up' in slang." That's maybe too many. A single sentence: "In slang, you could say, 'I don't get what's goin' on.'" That might fulfill.<|end|><|start|>assistant<|channel|>final<|message|>In slang, you might say, “I don't get what's goin' on.”<|return|>"""
-]
-
-for i in range(len(test_sentences)):
-    print("===="*10)
-    compare_genz(test_sentences[i])
-    print("****"*10)
-    print("Original model output")
-    print(f"{original_gpt_outputs[i]}")
-    print()
-    print("===="*10)
-    print()
