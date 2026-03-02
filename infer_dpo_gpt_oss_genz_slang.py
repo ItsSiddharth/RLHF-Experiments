@@ -6,7 +6,7 @@ from unsloth import FastLanguageModel
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 max_seq_length = 1024 
-model_name = "helper_utils/outputs/gpt-oss-genz-aligned-DPO-1e-ckpt"
+model_name = "helper_utils/outputs/gpt-oss-genz-aligned-DPO-2e-ckpt"
 
 # 2. Load Model & Tokenizer (Let Unsloth handle precision warnings)
 model, tokenizer = FastLanguageModel.from_pretrained(

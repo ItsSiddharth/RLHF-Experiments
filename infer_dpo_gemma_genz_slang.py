@@ -6,14 +6,14 @@ from unsloth import FastLanguageModel
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 max_seq_length = 1024 
-model_name = "<gemma-dpo-checkpoint-genz>"
+model_name = "helper_utils/outputs/gemma3-1b-genz-aligned-DPO-2e-ckpt"
 
 # 2. Load Model & Tokenizer (Let Unsloth handle precision warnings)
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = model_name,
     max_seq_length = max_seq_length,
     load_in_4bit = True,
-    offload_embedding = True, 
+    # offload_embedding = True, 
 )
 
 
@@ -52,9 +52,9 @@ def run_comparison(test_text):
             outputs_v = model.generate(**inputs, max_new_tokens = 500, use_cache = True)
             v_response = tokenizer.decode(outputs_v[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
 
-    print(f"Vanilla GPT-OSS Output: \n {v_response.strip().split('final')[-1]}")
+    print(f"Vanilla Gemma-1B Output: \n {v_response.strip().split('final')[-1]}")
     print("-" * 30)
-    print(f"DPO Aligned GPT-OSS Output: \n {ft_response.strip().split('final')[-1]}")
+    print(f"DPO Aligned Gemma-1B Output: \n {ft_response.strip().split('final')[-1]}")
     print("=" * 30)
 
 # Run Comparison
