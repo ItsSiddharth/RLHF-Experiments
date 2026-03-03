@@ -166,9 +166,58 @@ This gives me the code in train_dpo_gpt_oss_genz_slang.py
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+This is the format in which I have the logs logged. Write a script to plot everything out.
+```
+{
+  "best_global_step": null,
+  "best_metric": null,
+  "best_model_checkpoint": null,
+  "epoch": 2.0,
+  "eval_steps": 500,
+  "global_step": 126,
+  "is_hyper_param_search": false,
+  "is_local_process_zero": true,
+  "is_world_process_zero": true,
+  "log_history": [
+    {
+      "epoch": 0.016016016016016016,
+      "grad_norm": 10.341522216796875,
+      "learning_rate": 5e-06,
+      "logits/chosen": -3.7301177978515625,
+      "logits/rejected": -3.7308101654052734,
+      "logps/chosen": -130.67416381835938,
+      "logps/rejected": -124.21240997314453,
+      "loss": 0.69,
+      "rewards/accuracies": 0.625,
+      "rewards/chosen": -0.014678813517093658,
+      "rewards/margins": 0.017191410064697266,
+      "rewards/rejected": -0.031870223581790924,
+      "step": 1
+    },
+    {
+      "epoch": 0.03203203203203203,
+      "grad_norm": 6.814050674438477,
+      "learning_rate": 5e-06,
+      "logits/chosen": -3.611212730407715,
+      "logits/rejected": -3.613185405731201,
+      "logps/chosen": -120.90132141113281,
+      "logps/rejected": -116.67250061035156,
+      "loss": 0.6793,
+      "rewards/accuracies": 0.6875,
+      "rewards/chosen": 0.03559446707367897,
+      "rewards/margins": 0.04128231853246689,
+      "rewards/rejected": -0.005687855649739504,
+      "step": 2
+    },
+    .
+    .
+    .
+    .
+    ]
+}
+```
 
-
-
+Output: plot_metric_dpo.py file
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
