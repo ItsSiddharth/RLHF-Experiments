@@ -166,7 +166,7 @@ This gives me the code in train_dpo_gpt_oss_genz_slang.py
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-This is the format in which I have the logs logged. Write a script to plot everything out.
+This is the format in which I have the training logs logged. Write a script to plot everything out.
 ```
 {
   "best_global_step": null,
