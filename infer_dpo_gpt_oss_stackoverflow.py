@@ -7,7 +7,7 @@ import time
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 max_seq_length = 2048 
 # Path to your saved LoRA adapters
-model_path = "helper_utils/outputs/gpt-oss-stackoverflow-DPO-1e-ckpt" 
+model_path = "helper_utils/outputs/gpt-oss-stackover-aligned-DPO-1e-ckpt" 
 
 # 2. Load Model & Tokenizer
 model, tokenizer = FastLanguageModel.from_pretrained(
@@ -53,7 +53,7 @@ def run_technical_comparison(tags, title, body):
             temperature=0.1 # Lower temperature for technical accuracy
         )
         aligned_response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-    print(f"Time taken for LoRA attached GPT: {time.time() - start_time}")
+    print(f"Time taken for DPO Aligned GPT-OSS: {time.time() - start_time}")
     start_time = time.time()
     # B. Vanilla Output (LoRA Disabled)
     with model.disable_adapter():
@@ -68,9 +68,10 @@ def run_technical_comparison(tags, title, body):
             vanilla_response = tokenizer.decode(outputs_v[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
     print(f"Time taken for Vanilla GPT: {time.time() - start_time}")
     print(f"--- [VANILLA GPT-OSS] ---")
-    print(vanilla_response.strip())
+    print(vanilla_response.strip().split('assistantfinal')[-1])
+    print("\n" + ">"*60)
     print(f"\n--- [DPO ALIGNED] ---")
-    print(aligned_response.strip())
+    print(aligned_response.strip().split('assistantfinal')[-1])
     print("\n" + "="*60)
 
 # 3. Test Cases (Try specific technical hurdles)

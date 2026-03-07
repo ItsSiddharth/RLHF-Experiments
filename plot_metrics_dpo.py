@@ -7,7 +7,7 @@ import seaborn as sns
 
 # 1. Load the data
 # Replace 'trainer_state.json' with your actual file path
-file_path = 'helper_utils/outputs/gemma3-1b-genz-aligned-DPO-2e-ckpt/trainer_state.json' 
+file_path = 'helper_utils/outputs/gpt-oss-stackover-aligned-DPO-1e-ckpt/trainer_state.json' 
 with open(file_path, 'r') as f:
     data = json.load(f)
 
@@ -48,4 +48,4 @@ axes[1, 1].set_ylabel("Accuracy (%)")
 axes[1, 1].set_ylim(0, 1.1) # Accuracy is 0 to 1
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-plt.savefig('Gemma-3-1B-it-Training-Logs.png', dpi=300, bbox_inches='tight')
+plt.savefig('GPT-OSS-20B-it-Training-Logs-stackoverflow.png', dpi=300, bbox_inches='tight')

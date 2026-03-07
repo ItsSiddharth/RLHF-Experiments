@@ -26,7 +26,7 @@ model = FastLanguageModel.get_peft_model(
     random_state = 3407,
 )
 
-df = pd.read_csv("datasets/stackoverflow_dataset/final_RLHF_stackoverflow_dataset.csv", nrows=1000)
+df = pd.read_csv("datasets/stackoverflow_dataset/final_RLHF_stackoverflow_dataset_991perc.csv")
 dataset = Dataset.from_pandas(df)
 
 def format_stackoverflow_dpo(example):
