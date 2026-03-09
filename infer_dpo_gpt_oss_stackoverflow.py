@@ -90,3 +90,57 @@ test_suite = [
 
 for test in test_suite:
     run_technical_comparison(test['tags'], test['title'], test['body'])
+
+"""
+============================================================
+[TOPIC]: How to filter a dataframe by date range?
+============================================================
+Time taken for DPO Aligned GPT-OSS: 63.567285776138306
+Time taken for Vanilla GPT: 93.27307152748108
+--- [VANILLA GPT-OSS] ---
+```python
+import pandas as pd
+
+# Assume `df` already exists and has a column named 'Date'
+# Make sure it's of dtype datetime64
+df["Date"] = pd.to_datetime(df["Date"])
+
+start = pd.Timestamp("2023-01-01")
+end   = pd.Timestamp("2023-12-31")
+
+# Boolean mask - keep rows whose date falls in the interval [start, end]
+mask          = (df["Date"] >= start) & (df["Date"] <= end)
+
+rows_between_dates = df.loc[mask]      # this is your filtered DataFrame
+```
+
+If you prefer slicing on an indexed date column, first set it as the index:
+
+```python
+df.set_index("Date", inplace=True)
+subset = df.loc[start:end]            # automatically includes both bounds
+```
+
+Either approach will return all rows where **Date** lies between *1 Jan 2023* and *31 Dec 2023*, inclusive.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--- [DPO ALIGNED] ---
+```python
+import pandas as pd
+
+df = pd.read_csv('your_file.csv')          # your DataFrame
+df['Date'] = pd.to_datetime(df['Date'])   # ensure proper dtype
+
+start_date = "2023-01-01"
+end_date   = "2023-12-31"
+
+mask = (df["Date"] >= start_date) & (df["Date"] <= end_date)
+filtered_df = df.loc[mask]
+```
+
+`pd.to_datetime()` converts the *Date* column to `datetime64`.  
+The Boolean mask keeps all rows whose timestamp falls within the inclusive interval from **1 Jan 2023** to **31 Dec 2023**, and `loc[]` returns those rows.
+
+============================================================
+"""

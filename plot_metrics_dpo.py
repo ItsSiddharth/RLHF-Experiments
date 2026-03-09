@@ -20,7 +20,7 @@ df = df.dropna(subset=['loss'])
 # 3. Setup Plotting Style
 sns.set_theme(style="whitegrid")
 fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-fig.suptitle(f"DPO Training Metrics - {data.get('model_name', 'Gemma-3-1B-it')}", fontsize=16)
+fig.suptitle(f"DPO Training Metrics - {data.get('model_name', 'GPT-OSS-20B')}", fontsize=16)
 
 # --- Plot 1: Loss ---
 sns.lineplot(ax=axes[0, 0], data=df, x='step', y='loss', color='royalblue')
@@ -48,4 +48,4 @@ axes[1, 1].set_ylabel("Accuracy (%)")
 axes[1, 1].set_ylim(0, 1.1) # Accuracy is 0 to 1
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-plt.savefig('GPT-OSS-20B-it-Training-Logs-stackoverflow.png', dpi=300, bbox_inches='tight')
+plt.savefig('GPT-OSS-20B-Training-Logs-stackoverflow.png', dpi=300, bbox_inches='tight')
