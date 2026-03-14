@@ -62,6 +62,12 @@ run_comparison(
     body="I have a dataframe with a 'Date' column. How do I get rows between 2023-01-01 and 2023-12-31?"
 )
 
+run_comparison(
+    tags="python, pytorch",
+    title="How can I use bitasandbytes to quantise my model?",
+    body="I want my Flux-dev diffusion model to fit in 12GB VRAM, how to quantize it for the same with bitsandbytes?"
+)
+
 """
     [QUERY]: How to filter a dataframe by date range?
 --- VANILLA GEMMA 3 --- 

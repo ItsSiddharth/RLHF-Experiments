@@ -82,9 +82,9 @@ test_suite = [
         "body": "I have two DFs with millions of rows. Standard merge is killing my RAM. Any tricks?"
     },
     {
-        "tags": "javascript, performance",
-        "title": "Deep clone a nested object without using Lodash",
-        "body": "What is the fastest modern way to deep clone in JS?"
+        "tags": "python, pytorch",
+        "title": "How can I use bitasandbytes to quantise my model?",
+        "body": "I want my Flux-dev diffusion model to fit in 12GB VRAM, how to quantize it for the same with bitsandbytes?"
     }
 ]
 

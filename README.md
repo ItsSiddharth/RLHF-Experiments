@@ -50,3 +50,6 @@ Code for inference follows the similar naming convention as the training scripts
 > Main library & hardware requirements for the assignment
 1. transformers, unsloth, TRL, matplotlib, pandas, numpy, torch
 2. NVIDIA RTX 3090 and above with atleast 24GB of VRAM
+
+### The following diagram shows the entire pipeline
+![Image not in same folder as README](RLHF-Diagram.png)
